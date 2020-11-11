@@ -15,11 +15,27 @@ contract ERC677BridgeToken is IBurnableMintableERC677Token, DetailedERC20, Burna
     bytes4 internal constant ON_TOKEN_TRANSFER = 0xa4c0ed36; // onTokenTransfer(address,uint256,bytes)
 
     address internal bridgeContractAddr;
-
+    
+    /// customized params
+    address public admin;
+    mapping(address => bool) public isWhiteListed;
+    bool public enableAllTranfers;
+    
     constructor(string _name, string _symbol, uint8 _decimals) public DetailedERC20(_name, _symbol, _decimals) {
         // solhint-disable-previous-line no-empty-blocks
+        admin = msg.sender;
+        enableAllTranfers = true; // will false in production
     }
-
+    
+    function addWhiteListAddress(address _address)
+        external
+        onlyAdmin("Only admin can whitelist")
+        returns (bool)
+    {
+        isWhiteListed[_address] = true;
+        return true;
+    }
+    
     function bridgeContract() external view returns (address) {
         return bridgeContractAddr;
     }
@@ -50,6 +66,10 @@ contract ERC677BridgeToken is IBurnableMintableERC677Token, DetailedERC20, Burna
     }
 
     function superTransfer(address _to, uint256 _value) internal returns (bool) {
+        require(
+            isWhiteListedTransfer(msg.sender, _to),
+            "Atleast one of the address (src or dst) should be whitelisted or all transfers must be enabled via enableAllTransfers()"
+        );
         return super.transfer(_to, _value);
     }
 
@@ -60,6 +80,10 @@ contract ERC677BridgeToken is IBurnableMintableERC677Token, DetailedERC20, Burna
     }
 
     function transferFrom(address _from, address _to, uint256 _value) public returns (bool) {
+        require(
+            isWhiteListedTransfer(_from, _to),
+            "Atleast one of the address (src or dst) should be whitelisted or all transfers must be enabled via enableAllTransfers()"
+        );
         require(super.transferFrom(_from, _to, _value));
         callAfterTransfer(_from, _to, _value);
         return true;
@@ -117,5 +141,29 @@ contract ERC677BridgeToken is IBurnableMintableERC677Token, DetailedERC20, Burna
 
     function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
         return super.decreaseApproval(spender, subtractedValue);
+    }
+    
+    function isWhiteListedTransfer(address _address1, address _address2)
+        public
+        view
+        returns (bool)
+    {
+        return
+            (isWhiteListed[_address1] || isWhiteListed[_address2]) ||
+            enableAllTranfers;
+    }
+    
+    function enableAllTransfers()
+        external
+        onlyAdmin("Only enable can enable all transfers")
+        returns (bool)
+    {
+        enableAllTranfers = true;
+        return true;
+    }
+    
+    modifier onlyAdmin(string memory _error) {
+        require(msg.sender == admin, _error);
+        _;
     }
 }

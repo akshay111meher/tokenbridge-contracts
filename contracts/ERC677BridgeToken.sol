@@ -24,7 +24,7 @@ contract ERC677BridgeToken is IBurnableMintableERC677Token, DetailedERC20, Burna
     constructor(string _name, string _symbol, uint8 _decimals) public DetailedERC20(_name, _symbol, _decimals) {
         // solhint-disable-previous-line no-empty-blocks
         admin = msg.sender;
-        enableAllTranfers = true; // will false in production
+        enableAllTranfers = false; // will false in production
     }
     
     function addWhiteListAddress(address _address)
